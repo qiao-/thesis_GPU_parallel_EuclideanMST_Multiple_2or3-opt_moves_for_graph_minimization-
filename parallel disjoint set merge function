@@ -1,0 +1,42 @@
+# wenbao Qiao 04 April 2018 add this function for parallel implementation of disjoint set merge function
+DEVICE void operate(NetLinkPointCoord& nn_source, PointCoord ps, Grid<BufferLink2D>& rootMergingGraphGpu){
+
+        PointCoord couple2(-1, -1);
+        couple2 = nn_source.correspondenceMap[ps[1]][ps[0]];
+
+        PointCoord pCouple2(-1, -1);
+        pCouple2 = nn_source.correspondenceMap[couple2[1]][couple2[0]];
+
+        Point2D pTemp2(-1, -1);
+        pTemp2 = couple2;
+        nn_source.networkLinks[ps[1]][ps[0]].insert(pTemp2);
+
+        int rootPs = findRoot(nn_source.grayValueMap, ps[0]);
+        int rootCouple2 = findRoot(nn_source.grayValueMap, couple2[0]);
+        pTemp2[0] = rootCouple2;
+        pTemp2[1] = 0;
+        rootMergingGraphGpu[0][rootPs].insert(pTemp2); 
+
+        //! WB.Q add double links to winner node
+        pTemp2[0] = rootPs;
+        pTemp2[1] = 0;
+        if(nn_source.fixedMap[couple2[1]][couple2[0]] == 0) {
+            Point2D ps_(-1, -1);
+            ps_ = ps;
+            nn_source.networkLinks[couple2[1]][couple2[0]].bCell[atomicAdd(&(nn_source.networkLinks[couple2[1]][couple2[0]].numLinks), 1)] = ps_; // WB.Q this way can work for multi-thread operation
+            rootMergingGraphGpu[0][rootCouple2].bCell[atomicAdd(&(rootMergingGraphGpu[0][rootCouple2].numLinks), 1)] = pTemp2;
+        }
+        else if(nn_source.fixedMap[couple2[1]][couple2[0]]== 1 && pCouple2 != ps)
+        {
+            Point2D ps_(-1, -1);
+            ps_ = ps;
+            nn_source.networkLinks[couple2[1]][couple2[0]].bCell[atomicAdd(&(nn_source.networkLinks[couple2[1]][couple2[0]].numLinks), 1)] = ps_; // WB.Q this way can work for multi-thread operation
+            rootMergingGraphGpu[0][rootCouple2].bCell[atomicAdd(&(rootMergingGraphGpu[0][rootCouple2].numLinks), 1)] = pTemp2;
+        }
+
+        if(nn_source.grayValueMap[ps[1]][ps[0]] > nn_source.grayValueMap[couple2[1]][couple2[0]])
+        {
+            nn_source.fixedMap[ps[1]][ps[0]] = 0;
+        }
+
+    } // operate
